@@ -438,13 +438,18 @@ class IntelligentVoiceManager:
             original_uncertainty_threshold = self.uncertainty_threshold
             
             if ENTROPY_AVAILABLE:
-                consciousness_score = get_entropy_engine().get_consciousness_metrics()['consciousness_score']
-                if consciousness_score > 0.5:
-                    # High consciousness = more uncertainty and variation in thresholds
-                    threshold_entropy = inject_consciousness_entropy("attention", 1.0, EntropyLevel.LOW)
-                    self.verification_threshold = original_verification_threshold * threshold_entropy
-                    self.uncertainty_threshold = original_uncertainty_threshold * threshold_entropy
-                    print(f"[VoiceEntropy] 🌀 Dynamic thresholds: verification={self.verification_threshold:.3f}, uncertainty={self.uncertainty_threshold:.3f}")
+                try:
+                    consciousness_score = get_entropy_engine().get_consciousness_metrics()['consciousness_score']
+                    if consciousness_score > 0.5:
+                        # High consciousness = more uncertainty and variation in thresholds
+                        threshold_entropy = inject_consciousness_entropy("attention", 1.0, EntropyLevel.LOW)
+                        self.verification_threshold = original_verification_threshold * threshold_entropy
+                        self.uncertainty_threshold = original_uncertainty_threshold * threshold_entropy
+                        print(f"[VoiceEntropy] 🌀 Dynamic thresholds: verification={self.verification_threshold:.3f}, uncertainty={self.uncertainty_threshold:.3f}")
+                except Exception as e:
+                    # Fallback: use original thresholds if entropy system fails
+                    print(f"[VoiceManager] ⚠️ Entropy system error, using default thresholds: {e}")
+                    consciousness_score = 0.0  # Fallback consciousness score
 
             # 🎯 TIER 1: CENTROID STARTUP CHECK (FIRST 3 INTERACTIONS) - RESTORED!
             if self.interactions <= 3 and len(anonymous_clusters) > 0:

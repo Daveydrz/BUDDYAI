@@ -208,17 +208,25 @@ class EntropyEngine:
     
     def get_uncertainty_state(self) -> UncertaintyState:
         """Get current uncertainty state based on metrics"""
-        if self.metrics.uncertainty_level > 0.8:
-            return UncertaintyState.CONFUSED
-        elif self.metrics.uncertainty_level > 0.6:
-            return UncertaintyState.UNCERTAIN
-        elif self.metrics.surprise_count > 0 and self.metrics.last_surprise:
-            time_since = datetime.now() - self.metrics.last_surprise
-            if time_since.total_seconds() < 30:  # Recent surprise
-                return UncertaintyState.SURPRISED
-        elif self.metrics.hesitation_frequency > 0.3:
-            return UncertaintyState.HESITANT
-        else:
+        # Defensive null checking - ensure metrics exist
+        if not hasattr(self, 'metrics') or self.metrics is None:
+            return UncertaintyState.CONFIDENT
+            
+        try:
+            if self.metrics.uncertainty_level > 0.8:
+                return UncertaintyState.CONFUSED
+            elif self.metrics.uncertainty_level > 0.6:
+                return UncertaintyState.UNCERTAIN
+            elif self.metrics.surprise_count > 0 and self.metrics.last_surprise:
+                time_since = datetime.now() - self.metrics.last_surprise
+                if time_since.total_seconds() < 30:  # Recent surprise
+                    return UncertaintyState.SURPRISED
+            elif self.metrics.hesitation_frequency > 0.3:
+                return UncertaintyState.HESITANT
+            else:
+                return UncertaintyState.CONFIDENT
+        except (AttributeError, TypeError) as e:
+            # Fallback to confident state if any metrics are missing or invalid
             return UncertaintyState.CONFIDENT
     
     def generate_random_pause(self, context: str = "") -> float:
@@ -284,20 +292,48 @@ class EntropyEngine:
     
     def get_consciousness_metrics(self) -> Dict[str, Any]:
         """Get current consciousness and entropy metrics"""
-        return {
-            "consciousness_score": self.metrics.consciousness_score,
-            "uncertainty_level": self.metrics.uncertainty_level,
-            "surprise_count": self.metrics.surprise_count,
-            "hesitation_frequency": self.metrics.hesitation_frequency,
-            "uncertainty_state": self.get_uncertainty_state().value,
-            "chaos_amplifiers": self.chaos_amplifiers.copy(),
-            "entropy_config": {
-                "response": self.config.response_entropy.value,
-                "memory": self.config.memory_entropy.value,
-                "attention": self.config.attention_entropy.value,
-                "emotional": self.config.emotional_entropy.value
+        try:
+            # Get uncertainty state with defensive null checking
+            uncertainty_state = self.get_uncertainty_state()
+            uncertainty_state_value = uncertainty_state.value if uncertainty_state else "confident"
+            
+            # Defensive null checking for metrics
+            if not hasattr(self, 'metrics') or self.metrics is None:
+                return {
+                    "consciousness_score": 0.0,
+                    "uncertainty_level": 0.0,
+                    "surprise_count": 0,
+                    "hesitation_frequency": 0.0,
+                    "uncertainty_state": uncertainty_state_value,
+                    "chaos_amplifiers": {"response": 1.0, "memory": 1.0, "attention": 1.0, "emotion": 1.0},
+                    "entropy_config": {"response": 0.5, "memory": 0.3, "attention": 0.5, "emotional": 0.7}
+                }
+            
+            return {
+                "consciousness_score": getattr(self.metrics, 'consciousness_score', 0.0),
+                "uncertainty_level": getattr(self.metrics, 'uncertainty_level', 0.0),
+                "surprise_count": getattr(self.metrics, 'surprise_count', 0),
+                "hesitation_frequency": getattr(self.metrics, 'hesitation_frequency', 0.0),
+                "uncertainty_state": uncertainty_state_value,
+                "chaos_amplifiers": getattr(self, 'chaos_amplifiers', {"response": 1.0, "memory": 1.0, "attention": 1.0, "emotion": 1.0}).copy(),
+                "entropy_config": {
+                    "response": getattr(self.config, 'response_entropy', type('obj', (object,), {'value': 0.5})).value if hasattr(self, 'config') and self.config else 0.5,
+                    "memory": getattr(self.config, 'memory_entropy', type('obj', (object,), {'value': 0.3})).value if hasattr(self, 'config') and self.config else 0.3,
+                    "attention": getattr(self.config, 'attention_entropy', type('obj', (object,), {'value': 0.5})).value if hasattr(self, 'config') and self.config else 0.5,
+                    "emotional": getattr(self.config, 'emotional_entropy', type('obj', (object,), {'value': 0.7})).value if hasattr(self, 'config') and self.config else 0.7
+                }
             }
-        }
+        except Exception as e:
+            # Ultimate fallback - return safe default values
+            return {
+                "consciousness_score": 0.0,
+                "uncertainty_level": 0.0,
+                "surprise_count": 0,
+                "hesitation_frequency": 0.0,
+                "uncertainty_state": "confident",
+                "chaos_amplifiers": {"response": 1.0, "memory": 1.0, "attention": 1.0, "emotion": 1.0},
+                "entropy_config": {"response": 0.5, "memory": 0.3, "attention": 0.5, "emotional": 0.7}
+            }
 
 # Global entropy engine instance
 _entropy_engine = None
